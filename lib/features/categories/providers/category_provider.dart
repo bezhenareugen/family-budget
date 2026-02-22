@@ -1,9 +1,10 @@
 import 'package:family_budget/data/models/category.dart';
 import 'package:family_budget/data/repositories/category_repository.dart';
+import 'package:family_budget/main.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
-  return CategoryRepository();
+  return CategoryRepository(ref.watch(localStorageServiceProvider));
 });
 
 final categoriesProvider =

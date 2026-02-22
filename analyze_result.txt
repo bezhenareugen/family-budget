@@ -1,0 +1,4 @@
+Analyzing budget-app...                                         
+
+   info - The imported package 'flutter_native_splash' isn't a dependency of the importing package - lib\main.dart:4:8 - depend_on_referenced_packages
+

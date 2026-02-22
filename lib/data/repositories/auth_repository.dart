@@ -1,29 +1,26 @@
-import 'package:family_budget/data/mock/mock_auth_service.dart';
+import 'package:family_budget/data/local/local_storage_service.dart';
 import 'package:family_budget/data/models/user.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:uuid/uuid.dart';
 
 class AuthRepository {
-  final MockAuthService _authService = MockAuthService();
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final LocalStorageService _storage;
+  static const _uuid = Uuid();
 
-  static const _accessTokenKey = 'access_token';
-  static const _refreshTokenKey = 'refresh_token';
-  static const _userIdKey = 'user_id';
-  static const _userNameKey = 'user_name';
-  static const _userEmailKey = 'user_email';
+  AuthRepository(this._storage);
 
   Future<User> login({
     required String email,
     required String password,
   }) async {
-    final result = await _authService.login(
-      email: email,
-      password: password,
-    );
-
-    await _saveTokens(result.tokens);
-    await _saveUser(result.user);
-    return result.user;
+    // In local-only mode, check if user profile exists with matching email
+    final profile = _storage.getUserProfile();
+    if (profile != null) {
+      final user = User.fromJson(profile);
+      if (user.email.toLowerCase() == email.toLowerCase()) {
+        return user;
+      }
+    }
+    throw AuthException('Invalid email or password');
   }
 
   Future<User> register({
@@ -31,70 +28,44 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
-    final result = await _authService.register(
+    // Check if a user already exists
+    final existing = _storage.getUserProfile();
+    if (existing != null) {
+      final existingUser = User.fromJson(existing);
+      if (existingUser.email.toLowerCase() == email.toLowerCase()) {
+        throw AuthException('Email already registered');
+      }
+    }
+
+    final user = User(
+      id: _uuid.v4(),
       name: name,
-      email: email,
-      password: password,
+      email: email.toLowerCase(),
     );
 
-    await _saveTokens(result.tokens);
-    await _saveUser(result.user);
-    return result.user;
-  }
-
-  Future<bool> refreshToken() async {
-    try {
-      final refreshToken = await _storage.read(key: _refreshTokenKey);
-      if (refreshToken == null) return false;
-
-      final tokens = await _authService.refreshTokens(refreshToken);
-      await _saveTokens(tokens);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<String?> getAccessToken() async {
-    return _storage.read(key: _accessTokenKey);
+    await _storage.saveUserProfile(user.toJson());
+    return user;
   }
 
   Future<bool> isLoggedIn() async {
-    final token = await _storage.read(key: _accessTokenKey);
-    if (token == null) return false;
-
-    if (!_authService.validateAccessToken(token)) {
-      return refreshToken();
-    }
-    return true;
+    return _storage.getUserProfile() != null;
   }
 
   Future<User?> getCurrentUser() async {
-    final id = await _storage.read(key: _userIdKey);
-    final name = await _storage.read(key: _userNameKey);
-    final email = await _storage.read(key: _userEmailKey);
-
-    if (id == null || name == null || email == null) return null;
-
-    return User(id: id, name: name, email: email);
+    final profile = _storage.getUserProfile();
+    if (profile == null) return null;
+    return User.fromJson(profile);
   }
 
   Future<void> logout() async {
-    final token = await _storage.read(key: _accessTokenKey);
-    if (token != null) {
-      _authService.logout(token);
-    }
-    await _storage.deleteAll();
+    await _storage.clearUserProfile();
   }
+}
 
-  Future<void> _saveTokens(AuthTokens tokens) async {
-    await _storage.write(key: _accessTokenKey, value: tokens.accessToken);
-    await _storage.write(key: _refreshTokenKey, value: tokens.refreshToken);
-  }
+class AuthException implements Exception {
+  final String message;
+  const AuthException(this.message);
 
-  Future<void> _saveUser(User user) async {
-    await _storage.write(key: _userIdKey, value: user.id);
-    await _storage.write(key: _userNameKey, value: user.name);
-    await _storage.write(key: _userEmailKey, value: user.email);
-  }
+  @override
+  String toString() => message;
 }

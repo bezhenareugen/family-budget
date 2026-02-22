@@ -1,9 +1,10 @@
 import 'package:family_budget/data/models/user.dart';
 import 'package:family_budget/data/repositories/auth_repository.dart';
+import 'package:family_budget/main.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository();
+  return AuthRepository(ref.watch(localStorageServiceProvider));
 });
 
 enum AuthStatus { initial, authenticated, unauthenticated, loading }

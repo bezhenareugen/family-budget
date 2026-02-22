@@ -1,9 +1,10 @@
 import 'package:family_budget/data/models/transaction.dart';
 import 'package:family_budget/data/repositories/transaction_repository.dart';
+import 'package:family_budget/main.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
-  return TransactionRepository();
+  return TransactionRepository(ref.watch(localStorageServiceProvider));
 });
 
 final transactionsProvider = NotifierProvider<TransactionNotifier,

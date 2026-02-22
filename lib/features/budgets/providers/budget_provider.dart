@@ -1,9 +1,10 @@
 import 'package:family_budget/data/models/budget.dart';
 import 'package:family_budget/data/repositories/budget_repository.dart';
+import 'package:family_budget/main.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
-  return BudgetRepository();
+  return BudgetRepository(ref.watch(localStorageServiceProvider));
 });
 
 final budgetsProvider =
