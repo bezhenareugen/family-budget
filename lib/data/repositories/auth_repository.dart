@@ -1,26 +1,26 @@
-import 'package:family_budget/data/local/local_storage_service.dart';
 import 'package:family_budget/data/models/user.dart';
-import 'package:uuid/uuid.dart';
+import 'package:family_budget/data/remote/api_service.dart';
 
 class AuthRepository {
-  final LocalStorageService _storage;
-  static const _uuid = Uuid();
+  final ApiService _api;
 
-  AuthRepository(this._storage);
+  AuthRepository(this._api);
 
   Future<User> login({
     required String email,
     required String password,
   }) async {
-    // In local-only mode, check if user profile exists with matching email
-    final profile = _storage.getUserProfile();
-    if (profile != null) {
-      final user = User.fromJson(profile);
-      if (user.email.toLowerCase() == email.toLowerCase()) {
-        return user;
-      }
-    }
-    throw AuthException('Invalid email or password');
+    final data = await _api.post<Map<String, dynamic>>(
+      '/api/auth/login',
+      body: {'email': email, 'password': password},
+      fromJson: (json) => json as Map<String, dynamic>,
+    );
+    await _api.saveToken(data['token'] as String);
+    return User(
+      id: data['id'] as String,
+      name: data['name'] as String,
+      email: data['email'] as String,
+    );
   }
 
   Future<User> register({
@@ -28,37 +28,32 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
-    // Check if a user already exists
-    final existing = _storage.getUserProfile();
-    if (existing != null) {
-      final existingUser = User.fromJson(existing);
-      if (existingUser.email.toLowerCase() == email.toLowerCase()) {
-        throw AuthException('Email already registered');
-      }
-    }
-
-    final user = User(
-      id: _uuid.v4(),
-      name: name,
-      email: email.toLowerCase(),
+    final data = await _api.post<Map<String, dynamic>>(
+      '/api/auth/register',
+      body: {'name': name, 'email': email, 'password': password},
+      fromJson: (json) => json as Map<String, dynamic>,
     );
-
-    await _storage.saveUserProfile(user.toJson());
-    return user;
+    await _api.saveToken(data['token'] as String);
+    return User(
+      id: data['id'] as String,
+      name: data['name'] as String,
+      email: data['email'] as String,
+    );
   }
 
-  Future<bool> isLoggedIn() async {
-    return _storage.getUserProfile() != null;
-  }
+  Future<bool> isLoggedIn() => _api.hasToken();
 
+  /// The token alone is sufficient to know we're logged in.
+  /// We return a minimal User from whatever we have stored.
+  /// The full profile is fetched per-screen as needed.
   Future<User?> getCurrentUser() async {
-    final profile = _storage.getUserProfile();
-    if (profile == null) return null;
-    return User.fromJson(profile);
+    if (!await _api.hasToken()) return null;
+    // We don't have a /me endpoint yet — return null to trigger re-login
+    return null;
   }
 
   Future<void> logout() async {
-    await _storage.clearUserProfile();
+    await _api.clearToken();
   }
 }
 

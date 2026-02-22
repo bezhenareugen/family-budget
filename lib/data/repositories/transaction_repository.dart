@@ -1,61 +1,63 @@
-import 'package:family_budget/data/local/local_storage_service.dart';
 import 'package:family_budget/data/models/transaction.dart';
-import 'package:uuid/uuid.dart';
+import 'package:family_budget/data/remote/api_service.dart';
 
 class TransactionRepository {
-  final LocalStorageService _storage;
-  static const _uuid = Uuid();
+  final ApiService _api;
 
-  TransactionRepository(this._storage);
+  TransactionRepository(this._api);
 
   Future<List<Transaction>> getTransactions({
     DateTime? startDate,
     DateTime? endDate,
     String? categoryId,
   }) async {
-    final jsonList = _storage.getTransactions();
-    var transactions = jsonList.map((j) => Transaction.fromJson(j)).toList();
+    final params = <String, dynamic>{};
+    if (startDate != null) params['startDate'] = startDate.toIso8601String();
+    if (endDate != null) params['endDate'] = endDate.toIso8601String();
+    if (categoryId != null) params['categoryId'] = categoryId;
 
-    if (startDate != null) {
-      transactions = transactions.where((t) => !t.date.isBefore(startDate)).toList();
-    }
-    if (endDate != null) {
-      transactions = transactions.where((t) => !t.date.isAfter(endDate)).toList();
-    }
-    if (categoryId != null) {
-      transactions = transactions.where((t) => t.categoryId == categoryId).toList();
-    }
-
-    transactions.sort((a, b) => b.date.compareTo(a.date));
-    return transactions;
+    return _api.get<List<Transaction>>(
+      '/api/transactions',
+      queryParams: params,
+      fromJson: (json) => (json as List)
+          .map((j) => Transaction.fromJson(_normalizeJson(j as Map<String, dynamic>)))
+          .toList(),
+    );
   }
 
   Future<Transaction> addTransaction(Transaction transaction) async {
-    final newTransaction = transaction.copyWith(
-      id: _uuid.v4(),
-      createdAt: DateTime.now(),
+    return _api.post<Transaction>(
+      '/api/transactions',
+      body: {
+        'amount': transaction.amount,
+        'type': transaction.type.name,
+        'categoryId': transaction.categoryId,
+        'description': transaction.description,
+        'date': transaction.date.toIso8601String(),
+      },
+      fromJson: (json) => Transaction.fromJson(_normalizeJson(json as Map<String, dynamic>)),
     );
-
-    final jsonList = _storage.getTransactions();
-    jsonList.add(newTransaction.toJson());
-    await _storage.saveTransactions(jsonList);
-
-    return newTransaction;
   }
 
   Future<Transaction> updateTransaction(Transaction transaction) async {
-    final jsonList = _storage.getTransactions();
-    final index = jsonList.indexWhere((j) => j['id'] == transaction.id);
-    if (index == -1) throw Exception('Transaction not found');
-
-    jsonList[index] = transaction.toJson();
-    await _storage.saveTransactions(jsonList);
-    return transaction;
+    return _api.put<Transaction>(
+      '/api/transactions/${transaction.id}',
+      body: {
+        'amount': transaction.amount,
+        'type': transaction.type.name,
+        'categoryId': transaction.categoryId,
+        'description': transaction.description,
+        'date': transaction.date.toIso8601String(),
+      },
+      fromJson: (json) => Transaction.fromJson(_normalizeJson(json as Map<String, dynamic>)),
+    );
   }
 
-  Future<void> deleteTransaction(String id) async {
-    final jsonList = _storage.getTransactions();
-    jsonList.removeWhere((j) => j['id'] == id);
-    await _storage.saveTransactions(jsonList);
-  }
+  Future<void> deleteTransaction(String id) => _api.delete('/api/transactions/$id');
+
+  // API returns lowercase type ('income'/'expense'), Flutter model uses enum name
+  static Map<String, dynamic> _normalizeJson(Map<String, dynamic> j) => {
+        ...j,
+        'type': (j['type'] as String).toLowerCase(),
+      };
 }

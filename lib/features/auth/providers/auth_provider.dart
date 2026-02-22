@@ -4,7 +4,7 @@ import 'package:family_budget/main.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(ref.watch(localStorageServiceProvider));
+  return AuthRepository(ref.watch(apiServiceProvider));
 });
 
 enum AuthStatus { initial, authenticated, unauthenticated, loading }
@@ -51,11 +51,8 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final isLoggedIn = await _repository.isLoggedIn();
       if (isLoggedIn) {
-        final user = await _repository.getCurrentUser();
-        state = AuthState(
-          status: AuthStatus.authenticated,
-          user: user,
-        );
+        // Token exists — treat as authenticated without a separate /me call
+        state = const AuthState(status: AuthStatus.authenticated);
       } else {
         state = const AuthState(status: AuthStatus.unauthenticated);
       }
@@ -70,14 +67,8 @@ class AuthNotifier extends Notifier<AuthState> {
   }) async {
     state = state.copyWith(status: AuthStatus.loading, error: null);
     try {
-      final user = await _repository.login(
-        email: email,
-        password: password,
-      );
-      state = AuthState(
-        status: AuthStatus.authenticated,
-        user: user,
-      );
+      final user = await _repository.login(email: email, password: password);
+      state = AuthState(status: AuthStatus.authenticated, user: user);
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -96,14 +87,8 @@ class AuthNotifier extends Notifier<AuthState> {
     state = state.copyWith(status: AuthStatus.loading, error: null);
     try {
       final user = await _repository.register(
-        name: name,
-        email: email,
-        password: password,
-      );
-      state = AuthState(
-        status: AuthStatus.authenticated,
-        user: user,
-      );
+          name: name, email: email, password: password);
+      state = AuthState(status: AuthStatus.authenticated, user: user);
       return true;
     } catch (e) {
       state = state.copyWith(

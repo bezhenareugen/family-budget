@@ -53,6 +53,9 @@ app.*.map.json
 *.sln.docstates
 .vs/
 
+# Secrets / environment
+.env
+
 # Temp output files
 analyze_output.txt
 analyze_result.txt

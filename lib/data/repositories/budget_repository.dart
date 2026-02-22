@@ -1,50 +1,52 @@
-import 'package:family_budget/data/local/local_storage_service.dart';
 import 'package:family_budget/data/models/budget.dart';
-import 'package:uuid/uuid.dart';
+import 'package:family_budget/data/remote/api_service.dart';
 
 class BudgetRepository {
-  final LocalStorageService _storage;
-  static const _uuid = Uuid();
+  final ApiService _api;
 
-  BudgetRepository(this._storage);
+  BudgetRepository(this._api);
 
   Future<List<Budget>> getBudgets({int? month, int? year}) async {
-    final jsonList = _storage.getBudgets();
-    var budgets = jsonList.map((j) => Budget.fromJson(j)).toList();
+    final params = <String, dynamic>{};
+    if (month != null) params['month'] = month;
+    if (year != null) params['year'] = year;
 
-    if (month != null) {
-      budgets = budgets.where((b) => b.month == month).toList();
-    }
-    if (year != null) {
-      budgets = budgets.where((b) => b.year == year).toList();
-    }
-
-    return budgets;
+    return _api.get<List<Budget>>(
+      '/api/budgets',
+      queryParams: params,
+      fromJson: (json) => (json as List)
+          .map((j) => Budget.fromJson(j as Map<String, dynamic>))
+          .toList(),
+    );
   }
 
   Future<Budget> addBudget(Budget budget) async {
-    final newBudget = budget.copyWith(id: _uuid.v4());
-
-    final jsonList = _storage.getBudgets();
-    jsonList.add(newBudget.toJson());
-    await _storage.saveBudgets(jsonList);
-
-    return newBudget;
+    return _api.post<Budget>(
+      '/api/budgets',
+      body: {
+        'categoryId': budget.categoryId,
+        'limit': budget.limit,
+        'spent': budget.spent,
+        'month': budget.month,
+        'year': budget.year,
+      },
+      fromJson: (json) => Budget.fromJson(json as Map<String, dynamic>),
+    );
   }
 
   Future<Budget> updateBudget(Budget budget) async {
-    final jsonList = _storage.getBudgets();
-    final index = jsonList.indexWhere((j) => j['id'] == budget.id);
-    if (index == -1) throw Exception('Budget not found');
-
-    jsonList[index] = budget.toJson();
-    await _storage.saveBudgets(jsonList);
-    return budget;
+    return _api.put<Budget>(
+      '/api/budgets/${budget.id}',
+      body: {
+        'categoryId': budget.categoryId,
+        'limit': budget.limit,
+        'spent': budget.spent,
+        'month': budget.month,
+        'year': budget.year,
+      },
+      fromJson: (json) => Budget.fromJson(json as Map<String, dynamic>),
+    );
   }
 
-  Future<void> deleteBudget(String id) async {
-    final jsonList = _storage.getBudgets();
-    jsonList.removeWhere((j) => j['id'] == id);
-    await _storage.saveBudgets(jsonList);
-  }
+  Future<void> deleteBudget(String id) => _api.delete('/api/budgets/$id');
 }
