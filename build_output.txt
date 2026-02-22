@@ -1,0 +1,29 @@
+﻿flutter : Building 
+with plugins requires 
+symlink support.
+At line:1 char:1
++ flutter build 
+windows 2>&1 | 
+Out-File -Encoding 
+utf8 d:\Development\P 
+...
++ ~~~~~~~~~~~~~~~~~~~~
+~~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (Building w   
+ ith p...ymlink su    
+pport.:String) []    
+, RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+
+Please enable 
+Developer Mode in 
+your system settings. 
+Run
+  start 
+ms-settings:developers
+to open settings.
